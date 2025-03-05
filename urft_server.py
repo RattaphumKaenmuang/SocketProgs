@@ -3,6 +3,7 @@ from socket import *
 from classes import *
 from config import *
 import time
+import hashlib
 
 server_ip = argv[1]
 server_port = int(argv[2])
@@ -103,3 +104,7 @@ output_file.close()
 print(f"File transfer complete. Saved as {filename}")
 transaction_end = time.time()
 print(f"Time elapsed: {transaction_end - transaction_start}s")
+
+with open(filename, 'rb') as f:
+    file_content = f.read()
+print(f"md5sum: {hashlib.md5(file_content).digest().hex()}")

@@ -4,6 +4,7 @@ from classes import *
 from config import *
 import os
 import time
+import hashlib
 
 file_path = argv[1]
 server_ip = argv[2]
@@ -119,3 +120,4 @@ while True:
         raise SystemExit
 
 log("File transfer Completed.")
+print(f"md5sum: {hashlib.md5(file_content).digest().hex()}")
