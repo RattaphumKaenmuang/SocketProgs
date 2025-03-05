@@ -32,7 +32,7 @@ def check_ack(payload_seg, ack_seg):
     log(f"ACK matching: expected {expected_ack}, received {ack_seg.ack_num}, result: {res}")
     return res
 
-def send_and_wait(segment, expect_check_func, expect_msg, resend_delay=0.5):
+def send_and_wait(segment, expect_check_func, expect_msg):
     """Send a segment repeatedly until the expected ACK is received."""
     seg_bytes = segment.to_bytes()
     while True:
@@ -93,7 +93,7 @@ while base < total_chunks:
         # Retransmit segments that timed out
         current_time = time.time()
         for seq, (seg, send_time) in list(pending.items()):
-            if current_time - send_time > 1.0:  # 1-second timeout threshold
+            if current_time - send_time > 1.0:
                 log(f"Retransmitting segment: {seg}")
                 sock.sendto(seg.to_bytes(), server_addr)
                 pending[seq] = (seg, time.time())
