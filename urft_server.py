@@ -4,6 +4,7 @@ from classes import *
 from config import *
 import time
 import hashlib
+import os
 
 server_ip = argv[1]
 server_port = int(argv[2])
@@ -11,11 +12,8 @@ server_addr = (server_ip, server_port)
 client_addr = None
 
 sock = socket(AF_INET, SOCK_DGRAM)
-sock.settimeout(1)
 sock.bind(server_addr)
-
-seq_num = 0
-ack_num = 0
+sock.settimeout(SERVER_SOCK_TIMEOUT)
 
 log(f"Waiting for connection at {server_addr}...")
 
@@ -41,9 +39,11 @@ while True:
         log("Waiting for filename...")
 
 # =========== Content transmission ===========
+log("Receiving content...")
 transaction_start = time.time()
-filename = fname_seg.payload.decode()
-output_file = open(filename, 'wb')
+file_name = fname_seg.payload.decode()
+file_path = os.path.join(OUTPUT_PATH, file_name)
+output_file = open(file_path, 'wb')
 received_segments = {}
 expected_seq_num = 0
 consecutive_timeouts = 0
@@ -77,9 +77,6 @@ while True:
         elif seg.seq_num > expected_seq_num:
             received_segments[seg.seq_num] = seg
             log(f"Buffered out-of-order segment: seqNum = {seg.seq_num}")
-        
-        # Always send an ACK reflecting the latest expected sequence number
-        send_ack(expected_seq_num)
     
     except timeout:
         consecutive_timeouts += 1
@@ -95,16 +92,11 @@ fin_ack_seg = Segment(0, 0, b'FIN_ACK')
 sock.sendto(fin_ack_seg.to_bytes(), client_addr)
 log(f"Sent FIN_ACK: {fin_ack_seg}")
 
-# Write any remaining buffered segments
-for seq in sorted(received_segments):
-    seg = received_segments[seq]
-    output_file.write(seg.payload)
-    log(f"Wrote buffered segment to file: seqNum = {seq}")
 output_file.close()
-print(f"File transfer complete. Saved as {filename}")
+print(f"File transfer complete. Saved as {file_name}")
 transaction_end = time.time()
 print(f"Time elapsed: {transaction_end - transaction_start}s")
 
-with open(filename, 'rb') as f:
+with open(file_path, 'rb') as f:
     file_content = f.read()
 print(f"md5sum: {hashlib.md5(file_content).digest().hex()}")

@@ -12,7 +12,7 @@ server_port = int(argv[3])
 server_addr = (server_ip, server_port)
 
 sock = socket(AF_INET, SOCK_DGRAM)
-sock.settimeout(0.75)
+sock.settimeout(CLIENT_SOCK_TIMEOUT)
 
 file_name = os.path.basename(file_path)
 with open(file_path, 'rb') as f:
@@ -55,7 +55,7 @@ send_and_wait(fname_seg, check_ack, "Fname ACK")
 # =========== Content transmission ===========
 
 file_chunks = fragment(file_content)
-window_size = 35
+window_size = SENDING_WINDOW_SIZE
 base = 0             # Index of the first chunk in the window
 next_chunk_idx = 0   # Next chunk index to send
 current_seq_num = 0  # Byte offset for segments
@@ -64,7 +64,7 @@ pending = {}         # Map of seq_num to (segment, send_time)
 total_chunks = len(file_chunks)
 
 while base < total_chunks:
-    # Send segments while window is not full
+    # Send segments while window is not full and there are chunks unsent
     while next_chunk_idx < base + window_size and next_chunk_idx < total_chunks:
         payload = file_chunks[next_chunk_idx]
         seg = Segment(current_seq_num, expected_ack, payload)
@@ -93,7 +93,7 @@ while base < total_chunks:
         # Retransmit segments that timed out
         current_time = time.time()
         for seq, (seg, send_time) in list(pending.items()):
-            if current_time - send_time > 1.0:
+            if current_time - send_time > CLIENT_SEG_TIMEOUT:
                 log(f"Retransmitting segment: {seg}")
                 sock.sendto(seg.to_bytes(), server_addr)
                 pending[seq] = (seg, time.time())
