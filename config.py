@@ -5,6 +5,6 @@ CLIENT_SOCK_TIMEOUT = 0.7 # Can be set below RTT for the funny
 CLIENT_SEG_TIMEOUT = 0.8
 SERVER_SOCK_TIMEOUT = 0.7
 MAX_ACK_RETRIES = 5
-OUTPUT_PATH = "./output/"
+OUTPUT_PATH = "./"
 
 DEBUG = False
