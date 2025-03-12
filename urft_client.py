@@ -22,18 +22,15 @@ seq_num = 0
 ack_num = 0
 
 def fragment(content, fragment_size=FRAGMENT_SIZE):
-    """Break the file content into a list of chunks."""
     return [content[i:i+fragment_size] for i in range(0, len(content), fragment_size)]
 
 def check_ack(payload_seg, ack_seg):
-    """Check if the ack number matches the expected next byte."""
     expected_ack = payload_seg.seq_num + len(payload_seg.payload)
     res = (ack_seg.ack_num == expected_ack)
     log(f"ACK matching: expected {expected_ack}, received {ack_seg.ack_num}, result: {res}")
     return res
 
 def send_and_wait(segment, expect_check_func, expect_msg):
-    """Send a segment repeatedly until the expected ACK is received."""
     seg_bytes = segment.to_bytes()
     while True:
         try:
@@ -146,16 +143,15 @@ while base < total_chunks:
                 # Update send time for the retransmitted segment
                 pending[seq] = (seg, time.time())
                 retransmitted = True
-        
-        # If nothing was retransmitted, it might mean we're waiting for ACKs
-        # for segments that were actually received but ACKs were lost
-        # if not retransmitted and pending:
-        #     # Retransmit the oldest unacknowledged segment
-        #     oldest_seq = min(pending.keys())
-        #     oldest_seg, _ = pending[oldest_seq]
-        #     log(f"No specific timeout but no ACKs received, retransmitting oldest segment seq={oldest_seq}")
-        #     sock.sendto(oldest_seg.to_bytes(), server_addr)
-        #     pending[oldest_seq] = (oldest_seg, time.time())
+    
+    except KeyboardInterrupt:
+        sock.close()
+        raise SystemExit
+
+    except ConnectionResetError:
+        sock.close()
+        log("Server closed its socket for some reasons, terminating...")
+        raise SystemExit
 
 # =========== Ending Transaction ===========
 
@@ -167,7 +163,7 @@ server_fin_received = False
 
 while not (fin_acked and server_fin_received):
     try:
-        # Send FIN_ACK if haven't
+        # Send FIN if haven't FIN_ACKED
         if not fin_acked:
             sock.sendto(client_fin.to_bytes(), server_addr)
             log(f"Sending client FIN: {client_fin}")
@@ -201,6 +197,7 @@ while not (fin_acked and server_fin_received):
         log("Timeout during termination, retrying...")
         
     except KeyboardInterrupt:
+        sock.close()
         raise SystemExit
 
 log("File transfer Completed.")

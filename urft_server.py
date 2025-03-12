@@ -33,10 +33,18 @@ while True:
         log(f"File name: {fname_seg.payload.decode()}")
         send_ack(fname_seg.seq_num + len(fname_seg.payload))
         break
+
     except KeyboardInterrupt:
+        sock.close()
         raise SystemExit
+    
     except timeout:
         log("Waiting for filename...")
+
+    except ConnectionResetError:
+        log("Client closed its socket for some reasons, terminating...")
+        sock.close()
+        raise SystemExit
 
 # =========== Content transmission ===========
 log("Receiving content...")
@@ -77,14 +85,14 @@ while True:
             expected_seq_num += len(seg.payload)
             send_ack(expected_seq_num)
             
-            # Process any buffered segments now in order
+            # Something buffered might be in-order now
             while expected_seq_num in received_segments:
                 next_seg = received_segments.pop(expected_seq_num)
                 output_file.write(next_seg.payload)
                 expected_seq_num += len(next_seg.payload)
                 send_ack(expected_seq_num)
         
-        # Out-of-order segment: buffer it
+        # Out of order (Later packets arriving before it should)
         elif seg.seq_num > expected_seq_num:
             received_segments[seg.seq_num] = seg
             log(f"Buffered out-of-order segment: seqNum = {seg.seq_num}")
@@ -96,7 +104,7 @@ while True:
             send_ack(expected_seq_num)
             del seq_freq[seg.seq_num]
         else:
-            # Duplicate or outdated segment
+            # Possible duplicate
             send_ack(expected_seq_num)
     
     except timeout:
@@ -104,6 +112,12 @@ while True:
         log(f"Timeout {consecutive_timeouts}, last expected seqNum = {expected_seq_num}")
     
     except KeyboardInterrupt:
+        sock.close()
+        raise SystemExit
+    
+    except ConnectionResetError:
+        log("Client closed its socket for some reasons, terminating...")
+        sock.close()
         raise SystemExit
 
 # =========== Ending Transaction - Two-sided FIN exchange ===========
@@ -153,8 +167,11 @@ while not server_fin_acked and retry_count < max_retries:
     
     except KeyboardInterrupt:
         raise SystemExit
+    
+    except ConnectionResetError:
+        log("Client closed its socket for some reasons, terminating...")
+        raise SystemExit
 
-# Generate final statistics
 print(f"File transfer complete. Saved as {file_name}")
 transaction_end = time.time()
 print(f"Time elapsed: {transaction_end - transaction_start}s")
